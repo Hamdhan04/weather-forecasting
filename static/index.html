@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHERIS • Meteorological LSTM AI Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Ambient Background Lighting Mesh -->
+    <div class="ambient-glow glow-cyan"></div>
+    <div class="ambient-glow glow-purple"></div>
+    <div class="ambient-glow glow-amber"></div>
+
+    <!-- Main Container -->
+    <div class="app-layout">
+        
+        <!-- Luxury Top App Bar -->
+        <header class="app-header">
+            <div class="brand-group">
+                <div class="brand-icon">
+                    <i data-lucide="cloud-lightning"></i>
+                </div>
+                <div>
+                    <div class="brand-title">
+                        <span>AETHERIS</span>
+                        <span class="version-tag">AI v2.0</span>
+                    </div>
+                    <div class="brand-sub">Neural Time-Series Weather Platform • Stacked LSTM</div>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <div class="location-badge">
+                    <i data-lucide="map-pin" class="pin-icon"></i>
+                    <span class="loc-coords">12.8675° N, 80.0713° E</span>
+                    <span class="loc-divider">•</span>
+                    <span class="loc-name">Chengalpattu / Chennai, IN</span>
+                    <span class="api-tag">Open-Meteo ERA5</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="horizon-toggle" id="horizonSelector">
+                    <button class="horizon-btn" data-horizon="12">12H</button>
+                    <button class="horizon-btn active" data-horizon="24">24H</button>
+                    <button class="horizon-btn" data-horizon="48">48H</button>
+                </div>
+                <div class="status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span>ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI Metric Ribbon -->
+        <section class="kpi-grid">
+            <!-- Card 1: Forecast Temp -->
+            <div class="glass-card kpi-card cyan-border">
+                <div class="card-glow cyan"></div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Current Forecasted Temp</span>
+                    <div class="kpi-icon-box cyan-text">
+                        <i data-lucide="thermometer"></i>
+                    </div>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-number text-gradient-cyan" id="kpiCurrentTemp">--</span>
+                    <span class="kpi-unit">°C</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="badge-neutral">Ground Truth: <strong id="kpiActualTemp">--</strong> °C</span>
+                </div>
+            </div>
+
+            <!-- Card 2: 24h Delta -->
+            <div class="glass-card kpi-card amber-border">
+                <div class="card-glow amber"></div>
+                <div class="kpi-header">
+                    <span class="kpi-title">24-Hour Thermal Delta</span>
+                    <div class="kpi-icon-box amber-text">
+                        <i data-lucide="trending-up"></i>
+                    </div>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-number text-gradient-amber" id="kpiDelta">--</span>
+                    <span class="kpi-unit">°C</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="badge-amber" id="kpiDeltaBadge">Expected Shift</span>
+                </div>
+            </div>
+
+            <!-- Card 3: Humidity Index -->
+            <div class="glass-card kpi-card purple-border">
+                <div class="card-glow purple"></div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Ambient Humidity</span>
+                    <div class="kpi-icon-box purple-text">
+                        <i data-lucide="droplets"></i>
+                    </div>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-number text-gradient-purple" id="kpiHumidity">--</span>
+                    <span class="kpi-unit">%</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="badge-purple">Maritime Coastal Saturation</span>
+                </div>
+            </div>
+
+            <!-- Card 4: Model Confidence / RMSE -->
+            <div class="glass-card kpi-card green-border">
+                <div class="card-glow green"></div>
+                <div class="kpi-header">
+                    <span class="kpi-title">Accuracy Index (RMSE)</span>
+                    <div class="kpi-icon-box green-text">
+                        <i data-lucide="shield-check"></i>
+                    </div>
+                </div>
+                <div class="kpi-body">
+                    <span class="kpi-number text-gradient-green" id="kpiRmse">±1.32</span>
+                    <span class="kpi-unit">°C</span>
+                </div>
+                <div class="kpi-footer">
+                    <span class="badge-green">R² Score: <strong id="kpiR2">0.793</strong> (Test Set)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="tabForecast">
+                <i data-lucide="line-chart"></i>
+                <span>Forecast Studio</span>
+            </button>
+            <button class="tab-btn" data-tab="tabSimulator">
+                <i data-lucide="sliders"></i>
+                <span>Weather Simulator</span>
+            </button>
+            <button class="tab-btn" data-tab="tabDiagnostics">
+                <i data-lucide="activity"></i>
+                <span>Neural Diagnostics</span>
+            </button>
+            <button class="tab-btn" data-tab="tabArchitecture">
+                <i data-lucide="cpu"></i>
+                <span>LSTM Architecture</span>
+            </button>
+        </nav>
+
+        <!-- TAB CONTENT 1: FORECAST STUDIO -->
+        <main class="tab-pane active" id="tabForecast">
+            <div class="glass-card main-chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <h3>Multi-Step Meteorological Forecast</h3>
+                        <p>Continuous comparison between Actual Ground Truth and Stacked LSTM neural projections</p>
+                    </div>
+
+                    <div class="chart-controls">
+                        <div class="time-spans" id="spanSelector">
+                            <button class="span-btn" data-span="24">24H</button>
+                            <button class="span-btn" data-span="72">3D</button>
+                            <button class="span-btn active" data-span="168">7D</button>
+                            <button class="span-btn" data-span="300">All</button>
+                        </div>
+                        <div class="legend-pills">
+                            <span class="legend-pill"><span class="dot actual-dot"></span> Actual Weather</span>
+                            <span class="legend-pill"><span class="dot pred-dot"></span> LSTM Model</span>
+                            <span class="legend-pill"><span class="dot future-dot"></span> Future Horizon</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+
+                <!-- Sub-bar telemetry meters -->
+                <div class="telemetry-bar">
+                    <div class="tel-item">
+                        <span class="tel-label">Observed Temp</span>
+                        <span class="tel-val" id="telTemp">-- °C</span>
+                    </div>
+                    <div class="tel-item">
+                        <span class="tel-label">Relative Humidity</span>
+                        <span class="tel-val cyan-text" id="telHum">-- %</span>
+                    </div>
+                    <div class="tel-item">
+                        <span class="tel-label">Barometric Pressure</span>
+                        <span class="tel-val purple-text" id="telPres">-- hPa</span>
+                    </div>
+                    <div class="tel-item">
+                        <span class="tel-label">Wind Velocity</span>
+                        <span class="tel-val amber-text" id="telWind">-- km/h</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- TAB CONTENT 2: WEATHER SIMULATOR -->
+        <main class="tab-pane" id="tabSimulator">
+            <div class="simulator-layout">
+                <!-- Controls Panel -->
+                <div class="glass-card sim-controls-card">
+                    <div class="sim-header">
+                        <h3>Meteorological State Simulator</h3>
+                        <p>Manipulate atmospheric variables in real-time to observe how the LSTM projects future thermal inertia.</p>
+                    </div>
+
+                    <!-- Preset Buttons -->
+                    <div class="preset-section">
+                        <span class="section-label">REGIONAL CLIMATE PRESETS:</span>
+                        <div class="preset-grid">
+                            <button class="preset-pill" onclick="applyPreset(38.5, 55, 1004, 14)">☀️ Summer Peak</button>
+                            <button class="preset-pill" onclick="applyPreset(24.5, 94, 1002.5, 26)">🌧️ NE Monsoon</button>
+                            <button class="preset-pill" onclick="applyPreset(31.0, 78, 1009, 21.5)">🌊 Bay Breeze</button>
+                            <button class="preset-pill" onclick="applyPreset(20.8, 82, 1014.5, 7.5)">🌤️ Winter Dawn</button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Sliders -->
+                    <div class="sliders-list">
+                        <!-- Temp -->
+                        <div class="slider-group">
+                            <div class="slider-meta">
+                                <span class="slider-label"><i data-lucide="thermometer"></i> Ambient Temperature</span>
+                                <span class="slider-val text-gradient-cyan" id="simTempVal">28.0 °C</span>
+                            </div>
+                            <input type="range" class="custom-range" id="simTemp" min="15.0" max="45.0" step="0.5" value="28.0">
+                        </div>
+
+                        <!-- Humidity -->
+                        <div class="slider-group">
+                            <div class="slider-meta">
+                                <span class="slider-label"><i data-lucide="droplets"></i> Relative Humidity</span>
+                                <span class="slider-val text-gradient-purple" id="simHumVal">75 %</span>
+                            </div>
+                            <input type="range" class="custom-range" id="simHum" min="20" max="100" step="1" value="75">
+                        </div>
+
+                        <!-- Pressure -->
+                        <div class="slider-group">
+                            <div class="slider-meta">
+                                <span class="slider-label"><i data-lucide="gauge"></i> Surface Pressure</span>
+                                <span class="slider-val text-gradient-amber" id="simPresVal">1011.5 hPa</span>
+                            </div>
+                            <input type="range" class="custom-range" id="simPres" min="985.0" max="1025.0" step="0.5" value="1011.5">
+                        </div>
+
+                        <!-- Wind -->
+                        <div class="slider-group">
+                            <div class="slider-meta">
+                                <span class="slider-label"><i data-lucide="wind"></i> Wind Velocity (10m)</span>
+                                <span class="slider-val text-gradient-green" id="simWindVal">12.0 km/h</span>
+                            </div>
+                            <input type="range" class="custom-range" id="simWind" min="0" max="45" step="0.5" value="12.0">
+                        </div>
+                    </div>
+
+                    <button class="run-sim-btn" onclick="executeSimulation()">
+                        <i data-lucide="zap"></i> Run Neural Simulation
+                    </button>
+                </div>
+
+                <!-- Simulation Output Chart -->
+                <div class="glass-card sim-chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3>Simulated 48-Hour Forward Trajectory</h3>
+                            <p id="simDynamicInsight">Evaluating real-time atmospheric dynamics...</p>
+                        </div>
+                        <span class="live-tag">LIVE INFERENCE</span>
+                    </div>
+
+                    <div class="chart-wrapper">
+                        <canvas id="simChart"></canvas>
+                    </div>
+
+                    <div class="sim-insight-banner" id="simInsightBox">
+                        <i data-lucide="info" class="insight-icon"></i>
+                        <span id="simInsightText">Adjust the sliders or select a preset to compute the continuous forward neural trajectory.</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- TAB CONTENT 3: NEURAL DIAGNOSTICS -->
+        <main class="tab-pane" id="tabDiagnostics">
+            <div class="diag-grid">
+                <!-- Training Loss Curve -->
+                <div class="glass-card diag-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3>Training & Validation Loss Convergence</h3>
+                            <p>Mean Squared Error (MSE) tracked per epoch</p>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper small-chart">
+                        <canvas id="lossChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Residual Distribution -->
+                <div class="glass-card diag-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3>Test Prediction Residuals (y - ŷ)</h3>
+                            <p>Gaussian error spread centered around 0.0 °C</p>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper small-chart">
+                        <canvas id="residualChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Scorecards -->
+            <div class="scorecard-row">
+                <div class="glass-card score-box">
+                    <span class="score-label">Coefficient of Determination</span>
+                    <span class="score-val cyan-text">0.7931</span>
+                    <span class="score-desc">R² Goodness of Fit</span>
+                </div>
+                <div class="glass-card score-box">
+                    <span class="score-label">Root Mean Squared Error</span>
+                    <span class="score-val amber-text">1.3189 °C</span>
+                    <span class="score-desc">RMSE Test Partition</span>
+                </div>
+                <div class="glass-card score-box">
+                    <span class="score-label">Mean Absolute Error</span>
+                    <span class="score-val green-text">0.9736 °C</span>
+                    <span class="score-desc">Average Absolute Dev</span>
+                </div>
+                <div class="glass-card score-box">
+                    <span class="score-label">Mean Absolute % Error</span>
+                    <span class="score-val purple-text">3.66 %</span>
+                    <span class="score-desc">High Precision MAPE</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- TAB CONTENT 4: LSTM ARCHITECTURE -->
+        <main class="tab-pane" id="tabArchitecture">
+            <div class="arch-layout">
+                <!-- Blueprint Flow -->
+                <div class="glass-card arch-card">
+                    <h3>Deep Learning Architecture Blueprint</h3>
+                    <p>Stacked 2-Layer LSTM with recurrent dropout and dense multi-step linear projection head.</p>
+
+                    <div class="pipeline-flow">
+                        <div class="flow-step">
+                            <div class="step-badge">INPUT</div>
+                            <div class="step-title">Sliding Window Sequence</div>
+                            <div class="step-spec">Tensor Shape: <code>(Batch, 48, 4)</code> • [Temp, Humidity, Pressure, Wind]</div>
+                        </div>
+                        <div class="flow-arrow"><i data-lucide="arrow-down"></i></div>
+
+                        <div class="flow-step highlight-cyan">
+                            <div class="step-badge cyan">LSTM 1</div>
+                            <div class="step-title">Stacked Recurrent Layer 1</div>
+                            <div class="step-spec">64 Hidden Units • <code>return_sequences=True</code> • Dropout (0.20)</div>
+                        </div>
+                        <div class="flow-arrow"><i data-lucide="arrow-down"></i></div>
+
+                        <div class="flow-step highlight-amber">
+                            <div class="step-badge amber">LSTM 2</div>
+                            <div class="step-title">Stacked Recurrent Layer 2</div>
+                            <div class="step-spec">32 Hidden Units • <code>return_sequences=False</code> (State $h_T$) • Dropout (0.20)</div>
+                        </div>
+                        <div class="flow-arrow"><i data-lucide="arrow-down"></i></div>
+
+                        <div class="flow-step highlight-purple">
+                            <div class="step-badge purple">DENSE</div>
+                            <div class="step-title">Bottleneck & Linear Head</div>
+                            <div class="step-spec">Linear(32 → 16, ReLU) → Linear(16 → 48) Multi-Step Projection</div>
+                        </div>
+                        <div class="flow-arrow"><i data-lucide="arrow-down"></i></div>
+
+                        <div class="flow-step highlight-green">
+                            <div class="step-badge green">OUTPUT</div>
+                            <div class="step-title">Forward Horizon Tensor</div>
+                            <div class="step-spec">Tensor Shape: <code>(Batch, 48)</code> Hours Ahead Unscaled via Inverse MinMaxScaler</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mathematical Specification -->
+                <div class="glass-card arch-card">
+                    <h3>Recurrent Mathematical Formulations</h3>
+                    <div class="math-card">
+                        <div class="math-title">Forget Gate Equation</div>
+                        <code>f_t = σ(W_f · [h_{t-1}, x_t] + b_f)</code>
+                        <p>Eliminates obsolete meteorological diurnal memory from prior cycles.</p>
+                    </div>
+
+                    <div class="math-card">
+                        <div class="math-title">Candidate & Cell Update</div>
+                        <code>C_t = f_t ⊙ C_{t-1} + i_t ⊙ tanh(W_c · [h_{t-1}, x_t] + b_c)</code>
+                        <p>Accumulates synoptic pressure front gradients into persistent cell memory.</p>
+                    </div>
+
+                    <div class="math-card">
+                        <div class="math-title">Output State Vector</div>
+                        <code>h_t = σ(W_o · [h_{t-1}, x_t] + b_o) ⊙ tanh(C_t)</code>
+                        <p>Generates the recurrent activation passed forward in time.</p>
+                    </div>
+
+                    <div class="metadata-tags">
+                        <span class="meta-tag">Loss: MSE</span>
+                        <span class="meta-tag">Optimizer: Adam (1e-3)</span>
+                        <span class="meta-tag">Scheduler: Plateau Decay</span>
+                        <span class="meta-tag">Device: PyTorch CPU</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <span>AETHERIS • Meteorological Weather Forecasting LSTM Platform</span>
+            <span>Academic Mini-Project • PyTorch & High-Performance Vanilla Glassmorphism UI</span>
+        </footer>
+
+    </div>
+
+    <!-- Application Script -->
+    <script src="/static/app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
